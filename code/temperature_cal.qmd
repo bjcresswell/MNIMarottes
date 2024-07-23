@@ -1,0 +1,118 @@
+---
+title: "current meter temperature calibrations"
+author: "Ben Cresswell"
+date: today
+date-format: "DD/MM/YYYY"
+format: 
+  html:
+    ## Format
+    theme: spacelab
+    html-math-method: mathjax
+    ## Table of contents
+    toc: true
+    toc-float: true
+    ## Numbering
+    number-sections: true
+    number-depth: 3
+    ## Layout
+    fig-caption-location: "bottom"
+    fig-align: "center"
+    fig-width: 4.8
+    fig-height: 3
+    fig-dpi: 100
+    tbl-cap-location: top
+    ## Code
+    code-fold: false
+    code-tools: true
+    code-summary: "Show the code"
+    code-line-numbers: true
+    code-block-border-left: "#ccc"
+    highlight-style: zenburn
+    ## Execution
+    execute:
+      echo: true
+      cache: true
+    ## Rendering
+    embed-resources: true
+documentclass: article
+fontsize: 12pt
+execute-dir: project
+mainfont: Arial
+classoption: a4paper
+---
+
+# Introduction
+This document calculates calibrations/offsets for temperature probes in MNI CMs. Temp readings are calibrated from a pool test where CMs were tested against a HOBO MX Light/Temp logger 
+
+## Set up and housekeeping
+```{r}
+#| label: setup
+#| include: false
+
+knitr::opts_chunk$set(cache.lazy = FALSE,
+                      tidy = "styler")
+options(tinytex.engine = "xelatex")
+rm(list=ls())
+```
+
+
+```{r}
+library(readxl)
+library(tidyverse)
+```
+
+
+# Load current meter csv files 
+```{r}
+cm_filelist = list.files(path = "data/temperature_cal",
+               pattern = ".csv",
+               full.names = TRUE)
+
+cm_temp_raw <- purrr::map_df(cm_filelist, read.csv, stringsAsFactors = TRUE, .id = 'filename')  |> 
+  dplyr::mutate(CM_id = as_factor(paste0("M", str_pad(filename, width = 4, side = "left", pad = "0"))), .keep = "unused")
+```
+
+
+```{r}
+
+cm_temp_sum <- 
+  cm_temp_raw |> 
+  mutate(datetime = lubridate::as_datetime(datetime)) |> 
+  #mutate(date = lubridate::as_date(datetime)) |> 
+  mutate(hour = hour(datetime)) |> 
+  mutate(minute = str_pad(minute(datetime), width = 2, side = "left", pad = "0")) |> 
+  mutate(time = paste(hour, minute, sep = ":")) |> 
+  filter(time > "16:49" &
+           time < "17:10")  |> 
+  group_by(CM_id) |> 
+  summarise(mean_temp = mean(temp..Celsius.))
+```
+
+M8 and 9 are too far out to use temp data.
+
+
+# Std dev (with outliers excluded)
+```{r}
+cm_temp_sum |> 
+  filter(mean_temp > 30 &
+           mean_temp < 31) |> 
+  summarise(sd = sd(mean_temp))
+```
+
+
+# Load hobo data and calculate mean for same period
+```{r}
+hobo <- read_excel("data/hobo_ref_file.xlsx") |> 
+  rename(datetime = `Date-Time (AST)`) |> 
+   mutate(hour = hour(datetime)) |> 
+   mutate(minute = str_pad(minute(datetime), width = 2, side = "left", pad = "0")) |> 
+   mutate(time = paste(hour, minute, sep = ":")) |> 
+   filter(time > "16:49" &
+           time < "17:10") |> 
+    summarise(mean_temp = mean(`Temperature (°C)`))
+
+```
+
+
+
+
