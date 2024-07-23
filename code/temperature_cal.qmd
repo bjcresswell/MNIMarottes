@@ -56,6 +56,7 @@ rm(list=ls())
 ```
 
 
+# Libraries
 ```{r}
 library(readxl)
 library(tidyverse)
@@ -64,17 +65,16 @@ library(tidyverse)
 
 # Load current meter csv files 
 ```{r}
-cm_filelist = list.files(path = "data/temperature_cal",
+cm_temp_raw <- 
+  list.files(path = "data/temperature_cal",
                pattern = ".csv",
-               full.names = TRUE)
-
-cm_temp_raw <- purrr::map_df(cm_filelist, read.csv, stringsAsFactors = TRUE, .id = 'filename')  |> 
+               full.names = TRUE) |> 
+  purrr::map_df(read.csv, stringsAsFactors = TRUE, .id = 'filename')  |> 
   dplyr::mutate(CM_id = as_factor(paste0("M", str_pad(filename, width = 4, side = "left", pad = "0"))), .keep = "unused")
 ```
 
-
+# Get mean temps for duration of deployment
 ```{r}
-
 cm_temp_sum <- 
   cm_temp_raw |> 
   mutate(datetime = lubridate::as_datetime(datetime)) |> 
